@@ -565,6 +565,8 @@ fn main() -> ! {
                                     let color: u16 = ((spi.transfer(&mut [0u8]).expect("SPI read")[0] as u16) << 8_u16) | spi.transfer(&mut [0u8]).expect("SPI read")[0] as u16;
                                     buffer[i] = rgb565_to_gray(color);
                                     written_length += 2;
+                                    defmt::println!("{=u8:02X}", buffer[i + 1]);
+                                    defmt::println!("{=u8:02X}", buffer[i]);
                                 }
                                 (written_length, written_length)
                             })
