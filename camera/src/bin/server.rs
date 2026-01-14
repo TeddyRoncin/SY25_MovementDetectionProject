@@ -347,7 +347,7 @@ fn rgb565_to_gray(pixel: u16) -> u8 {
     (y >> 8) as u8
 }
 
-pub fn rgb565_buffer_to_grayscale(
+pub fn rgb565_buffer_to_gray(
     src: &[u8],
     dst: &mut [u8],
 ) {
@@ -554,16 +554,16 @@ fn main() -> ! {
                     cs.set_low();
                     spi.write(&[ARDUCHIP_BURST_FIFO_READ]).expect("SPI write");
                     let mut send_length = 0;
-                    while send_length < 153600 {
+                    while send_length < 76800 {
                         send_length += socket
                             .send(|buffer| {
                                 let mut written_length = 0;
-                                for i in 0..buffer.len() / 2 {
-                                    if send_length + written_length == 153600 {
+                                for i in 0..buffer.len() {
+                                    if send_length + written_length == 76800 {
                                         break;
                                     }
-                                    buffer[i + 1] = spi.transfer(&mut [0u8]).expect("SPI read")[0];
-                                    buffer[i] = spi.transfer(&mut [0u8]).expect("SPI read")[0];
+                                    let color: u16 = ((spi.transfer(&mut [0u8]).expect("SPI read")[0] as u16) << 8_u16) | spi.transfer(&mut [0u8]).expect("SPI read")[0] as u16;
+                                    buffer[i] = rgb565_to_gray(color);
                                     written_length += 2;
                                 }
                                 (written_length, written_length)
