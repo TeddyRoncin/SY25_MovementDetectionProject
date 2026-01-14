@@ -1,0 +1,44 @@
+[package]
+# TODO(1) fix `authors` and `name` if you didn't use `cargo-generate`
+name = "stm32h755zi"
+edition = "2024"
+version = "0.1.0"
+
+[lib]
+harness = false
+
+[dependencies]
+cortex-m = { version = "0.7", features = ["critical-section-single-core"] }
+cortex-m-rt = "0.7"
+defmt = "1.0"
+defmt-rtt = "1.0"
+embedded-alloc = { version = "0.7.0", features = ["llff"] }
+panic-probe = { version = "1.0", features = ["print-defmt"] }
+semihosting = "0.1.20"
+smoltcp = { version = "0.11.0", default-features = false, features = ["alloc", "defmt", "socket-tcp", "proto-ipv4", "medium-ethernet", "medium-ip"] }
+# TODO(4) enter your HAL here
+stm32h7xx-hal = { version = "0.16.0", features = ["stm32h753", "ethernet"] }
+
+[dev-dependencies]
+defmt-test = "0.3"
+
+# cargo build/run
+[profile.dev]
+# default is opt-level = '0', but that makes very
+# verbose machine code
+opt-level = 's'
+# trade compile speed for slightly better optimisations
+codegen-units = 1
+
+# cargo build/run --release
+[profile.release]
+# default is opt-level = '3', but that makes quite
+# verbose machine code
+opt-level = 's'
+# trade compile speed for slightly better optimisations
+codegen-units = 1
+# Use Link Time Optimisations to further inline things across
+# crates
+lto = 'fat'
+# Leave the debug symbols in (default is no debug info)
+debug = 2
