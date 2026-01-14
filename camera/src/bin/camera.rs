@@ -420,18 +420,3 @@ fn main() -> ! {
 
     exit()
 }
-
-
-fn rgb565_to_gray_fast(pixel: u16) -> u8 {
-    let r = (pixel >> 11) & 0x1F;
-    let g = (pixel >> 5) & 0x3F;
-    let b = pixel & 0x1F;
-
-    // Mise à l’échelle intégrée
-    let y =
-        77 * r * 255 / 31 +
-            150 * g * 255 / 63 +
-            29 * b * 255 / 31;
-
-    (y >> 8) as u8
-}

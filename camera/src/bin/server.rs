@@ -332,6 +332,35 @@ macro_rules! burst_fifo_read {
     }};
 }
 
+
+fn rgb565_to_gray(pixel: u16) -> u8 {
+    let r = (pixel >> 11) & 0x1F;
+    let g = (pixel >> 5) & 0x3F;
+    let b = pixel & 0x1F;
+
+    // Mise à l’échelle intégrée
+    let y =
+        77 * r * 255 / 31 +
+            150 * g * 255 / 63 +
+            29 * b * 255 / 31;
+
+    (y >> 8) as u8
+}
+
+pub fn rgb565_buffer_to_grayscale(
+    src: &[u8],
+    dst: &mut [u8],
+) {
+    let mut j = 0;
+
+    for i in (0..src.len()).step_by(2) {
+        let pixel = u16::from_be_bytes([src[i], src[i + 1]]);
+        dst[j] = rgb565_to_gray(pixel);
+        j += 1;
+    }
+}
+
+
 #[global_allocator]
 static ALLOCATOR: EmbeddedAllocator = EmbeddedAllocator::empty();
 
