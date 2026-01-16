@@ -1,16 +1,14 @@
 import requests
 import cv2
 import numpy as np
+import socket
 import scipy.signal
-
-
-IOT_MODE = False
-
-# def hex2int(hex: str) -> int:
-#     res = 0
-#     for c in hex:
-#         res = (res << 4) | ({"0": 0, "1": 1, "2": 2, "3": 3, "4":4, "5": 5, "6": 6, "7": 7, "8": 8, "9": 9, "A": 10, "B": 11, "C": 12, "D":13, "E":14, "F":15}[c])
-#     return res
+from typing import override
+import selenium
+import selenium.webdriver
+from selenium.webdriver.common.by import By
+import base64
+import time
 
 
 def get_motion(prev, curr):
@@ -21,28 +19,99 @@ def get_motion(prev, curr):
     _, mask = cv2.threshold(mask, 7, 1, cv2.THRESH_BINARY)
     return mask * 255
 
+class ImageGrabber:
+    def grab(self):
+        raise NotImplemented(f"{self.__class__} should implement grab")
+    
+class VideoCaptureImageGrabber(ImageGrabber):
+    def __init__(self):
+        self.vc = cv2.VideoCapture("http://192.168.122.100/")
+    @override
+    def grab(self):
+        success, image = self.vc.read()
+        if not success:
+            return None
+        return image
+    
+class SeleniumImageGrabber(ImageGrabber):
+    def __init__(self):
+        chrome_options = selenium.webdriver.ChromeOptions()
+        chrome_options.add_argument("--headless")
+        self.driver = selenium.webdriver.Chrome(chrome_options)
+    @override
+    def grab(self):
+        # self.driver.get("http://192.168.122.100/")
+        self.driver.get("file:///home/teddy/Downloads/c357face2de95f03e31c27cecec2ef63.jpg")
+        image = self.driver.find_element(By.CSS_SELECTOR, "img")
+        if False:
+            png_bytes = image.screenshot_as_png
+        else:
+            png_bytes = image.screenshot_as_base64
+        print(png_bytes)
+        print(type(png_bytes))
+        print(base64.decode())
+        image = cv2.imdecode(np.frombuffer(png_bytes, np.uint8), cv2.IMREAD_GRAYSCALE)
+        return image
+    def __del__(self):
+        self.driver.quit()
+    
+class RequestsImageGrabber(ImageGrabber):
+    @override
+    def grab(self):
+        # res = requests.get("http://192.168.122.100/").raw.data
+        res = requests.get("http://127.0.0.1:8080/").text.encode()
+        with open("f.bmp", "wb") as f:
+            f.write(res)
+        image = cv2.imdecode(np.frombuffer(res, np.uint8), cv2.IMREAD_GRAYSCALE)
+        return image
+    
+class SocketImageGrabber(ImageGrabber):
+    def __init__(self):
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # self.sock.connect(("192.168.122.100", 80))
+        self.sock.connect(("127.0.0.1", 8080))
+    @override
+    def grab(self):
+        self.sock.send(b"blabla")
+        res = b""
+        fully_received_header = False
+        while len(res) < 320 * 240 + 1078:
+            res += self.sock.recv(1024)
+            if not fully_received_header:
+                end_of_header = res.find(b"\n\n")
+                if end_of_header != -1:
+                    res = res[end_of_header + 2 :]
+                    fully_received_header = True
+        image = cv2.imdecode(np.frombuffer(res, np.uint8), cv2.IMREAD_GRAYSCALE)
+        image = cv2.flip(image, -1)
+        image = cv2.resize(image, (960, 720))
+        return image
 
-if IOT_MODE:
-    vc = cv2.VideoCapture(0)
-else:
-    vc = None
+class CameraImageGrabber(ImageGrabber):
+    def __init__(self):
+        self.vc = cv2.VideoCapture(0)
+    @override
+    def grab(self):
+        success, image = self.vc.read()
+        if not success:
+            return None
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        return image
+
+
+ig = SocketImageGrabber()
 previous_image = None
 
-while True:
-    if IOT_MODE:
-        res = requests.get("http://192.168.122.100/").text.encode()
-        # print(res[:100])
-        # with open("f.bmp", "wb") as f:
-        #     f.write(res)
-        image = cv2.imdecode(np.frombuffer(res, np.uint8), cv2.IMREAD_GRAYSCALE)
-    else:
-        success, image = vc.read()
-        if not success:
-            continue
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+last_time = 0
 
+while True:
+    image = ig.grab()
+    # cv2.imshow("hey ?", image)
     if previous_image is not None:
         cv2.imshow("Out", get_motion(previous_image, image))
     previous_image = image
     cv2.waitKey(1)
+    new_time = time.time()
+    print(f"FPS : {1 / (new_time - last_time):.0f}")
+    last_time = new_time
     
