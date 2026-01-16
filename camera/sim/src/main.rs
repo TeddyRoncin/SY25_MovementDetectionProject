@@ -351,7 +351,7 @@ fn main() {
                 break;
             }
             let frame = camera.capture().expect("Could not capture from the webcam");
-            match stream.write(format!("HTTP/1.1 200\nContent-Type: image/bmp\nContent-Length: {}\n\n", 1078 + 7800).as_bytes())
+            match stream.write(format!("HTTP/1.1 200\nContent-Type: image/bmp\nContent-Length: {}\n\n", 1078 + 76800).as_bytes())
                       .and(stream.write(&IMAGE_HEADER)) {
                 Ok (_v) => {}
                 Err (_e) => {println!("Warning: Could not write to socket")}
