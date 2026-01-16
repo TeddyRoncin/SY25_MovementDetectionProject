@@ -228,7 +228,7 @@ const OV2640_QVGA: [[u8; 2]; 193] = [
     [0x5, 0x0],
 ];
 
-const IMAGE_HEADER_SIZE: usize = 0;
+const IMAGE_HEADER_SIZE: usize = 1078;
 
 const BMP_HEADER_GRAYSCALED: [u8; 1078] = [
   // BMP header : 14 bytes
@@ -563,7 +563,7 @@ const OV2640_JPEG_INIT: [[u8; 2]; 14] = [
     [0xe0, 0x00],
 ];
 
-const IMAGE_HEADER: [u8; IMAGE_HEADER_SIZE] = [];
+const IMAGE_HEADER: [u8; IMAGE_HEADER_SIZE] = BMP_HEADER_GRAYSCALED;
 
 macro_rules! i2c_read {
     ($i2c:ident, $reg:expr) => {{
@@ -815,7 +815,7 @@ fn main() -> ! {
     delay.delay_ms(100_u16);
 
     // Camera config
-    for [reg, val] in OV2640_JPEG_INIT {
+    for [reg, val] in OV2640_QVGA {
         i2c_write!(i2c, reg, val);
     }
     delay.delay_ms(1000_u16);
@@ -858,8 +858,8 @@ fn main() -> ! {
                 if length >= 153600 {
                     defmt::println!("RESPONSE");
                     socket
-                        // .send_slice("HTTP/1.1 200\nContent-Type: image/png\n\n".as_bytes())
-                        .send_slice("HTTP/1.1 200\n\n".as_bytes())
+                        .send_slice("HTTP/1.1 200\nContent-Type: image/png\n\n".as_bytes())
+                        //.send_slice("HTTP/1.1 200\n\n".as_bytes())
                         .unwrap();
                     socket.send_slice(&IMAGE_HEADER).unwrap();
                     let mut finished = false;
@@ -876,14 +876,16 @@ fn main() -> ! {
                                     }
                                     let color: u16 = ((spi.transfer(&mut [0u8]).expect("SPI read")[0] as u16) << 8_u16) | spi.transfer(&mut [0u8]).expect("SPI read")[0] as u16;
                                     buffer[i] = rgb565_to_gray(color);
-                                    written_length += 2;
-                                    defmt::println!("{=u8:02X}", buffer[i + 1]);
-                                    defmt::println!("{=u8:02X}", buffer[i]);
+                                    written_length += 1;
+                                    if written_length < 1 {
+                                        defmt::println!("{=u8:02X}", buffer[i]);
+                                    }
                                 }
                                 (written_length, written_length)
                             })
                             .unwrap();
                     }
+                    defmt::println!("{=usize}", send_length);
                     defmt::println!("Socket CLOSE");
                     socket.close();
                 }
