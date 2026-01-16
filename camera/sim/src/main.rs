@@ -338,7 +338,7 @@ fn main() {
 
     println!("Now listening...");
     for stream in listener.incoming() {
-        println!("connection received");
+        println!("Opening socket");
         let mut stream = stream.expect("Connection failed");
         let mut buffer = [0; 1024];
         loop {
@@ -347,15 +347,14 @@ fn main() {
                 Err (_e) => { println!("Warning: Could not read from the socket"); continue; }
             };
             if read_length == 0 {
+                println!("Socket closed, listening for other sockets");
                 break;
             }
             let frame = camera.capture().expect("Could not capture from the webcam");
-            stream
-                .write("HTTP/1.1 200\nContent-Type: image/bmp\n\n".as_bytes())
-                .expect("Could not write to socket");
-            match stream.write(&IMAGE_HEADER) {
+            match stream.write(format!("HTTP/1.1 200\nContent-Type: image/bmp\nContent-Length: {}\n\n", 1078 + 7800).as_bytes())
+                      .and(stream.write(&IMAGE_HEADER)) {
                 Ok (_v) => {}
-                Err (_e) => { println!("Warning: Could not write to socket"); continue; }
+                Err (_e) => {println!("Warning: Could not write to socket")}
             }
             let mut frame_iterator = frame.iter();
             loop {

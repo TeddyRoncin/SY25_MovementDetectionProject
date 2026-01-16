@@ -10,6 +10,10 @@ from selenium.webdriver.common.by import By
 import base64
 import time
 
+# IP, PORT = "192.168.122.100", 80
+IP, PORT = "127.0.0.1", 8080
+URL = f"http://{IP}" + (f":{PORT}" if PORT != 80 else "")
+
 
 def get_motion(prev, curr):
     diff = cv2.absdiff(prev, curr)
@@ -25,7 +29,7 @@ class ImageGrabber:
     
 class VideoCaptureImageGrabber(ImageGrabber):
     def __init__(self):
-        self.vc = cv2.VideoCapture("http://192.168.122.100/")
+        self.vc = cv2.VideoCapture(URL)
     @override
     def grab(self):
         success, image = self.vc.read()
@@ -40,17 +44,13 @@ class SeleniumImageGrabber(ImageGrabber):
         self.driver = selenium.webdriver.Chrome(chrome_options)
     @override
     def grab(self):
-        # self.driver.get("http://192.168.122.100/")
-        self.driver.get("file:///home/teddy/Downloads/c357face2de95f03e31c27cecec2ef63.jpg")
+        self.driver.get(URL)
+        # self.driver.get("file:///home/teddy/Downloads/c357face2de95f03e31c27cecec2ef63.jpg")
         image = self.driver.find_element(By.CSS_SELECTOR, "img")
-        if False:
-            png_bytes = image.screenshot_as_png
-        else:
-            png_bytes = image.screenshot_as_base64
-        print(png_bytes)
-        print(type(png_bytes))
-        print(base64.decode())
+        png_bytes = image.screenshot_as_png
         image = cv2.imdecode(np.frombuffer(png_bytes, np.uint8), cv2.IMREAD_GRAYSCALE)
+        image = cv2.flip(image, -1)
+        image = cv2.resize(image, (960, 720))
         return image
     def __del__(self):
         self.driver.quit()
@@ -58,18 +58,16 @@ class SeleniumImageGrabber(ImageGrabber):
 class RequestsImageGrabber(ImageGrabber):
     @override
     def grab(self):
-        # res = requests.get("http://192.168.122.100/").raw.data
-        res = requests.get("http://127.0.0.1:8080/").text.encode()
-        with open("f.bmp", "wb") as f:
-            f.write(res)
+        res = requests.get(URL).text.encode()
+        # with open("f.bmp", "wb") as f:
+        #     f.write(res)
         image = cv2.imdecode(np.frombuffer(res, np.uint8), cv2.IMREAD_GRAYSCALE)
         return image
     
 class SocketImageGrabber(ImageGrabber):
     def __init__(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # self.sock.connect(("192.168.122.100", 80))
-        self.sock.connect(("127.0.0.1", 8080))
+        self.sock.connect((IP, PORT))
     @override
     def grab(self):
         self.sock.send(b"blabla")
@@ -112,6 +110,6 @@ while True:
     previous_image = image
     cv2.waitKey(1)
     new_time = time.time()
-    print(f"FPS : {1 / (new_time - last_time):.0f}")
+    print(f"FPS : {1 / (new_time - last_time):.1f}")
     last_time = new_time
     
