@@ -1,3 +1,4 @@
 camera/**/target
 **/.idea
 **/__pycache__
+camera/output.txt
