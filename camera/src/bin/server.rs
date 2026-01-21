@@ -242,7 +242,8 @@ const BMP_HEADER_GRAYSCALED: [u8; 1078] = [
   0x28, 0x00, 0x00, 0x00,  // DIB Header size : 40 bytes
   0x40, 0x01, 0x00, 0x00,  // Image width : 320 px
   0xF0, 0x00, 0x00, 0x00,  // Image height : 240 px
-  0x00, 0x00, 0x08, 0x00,  // Bits per pixel : 8 bits
+  0x01, 0x00,              // Number of planes (1)
+  0x08, 0x00,              // Bits per pixel : 8 bits
   0x00, 0x00, 0x00, 0x00,  // Compression method : 0 (NONE)
   0x00, 0x2C, 0x01, 0x00,  // Raw Bitmap size : 76800 bytes
   0xC4, 0x0E, 0x00, 0x00,  // Horizontal resolution : 3780 px/m
@@ -520,8 +521,8 @@ const BMP_HEADER_COLORED: [u8; 66] = [
     0x28, 0x00, 0x00, 0x00, // DIB Header size : 40 bytes
     0x40, 0x01, 0x00, 0x00, // Image width : 320 px
     0xF0, 0x00, 0x00, 0x00, // Image height : 240 px
-    0x01, 0x00, // Color plane : 1
-    0x10, 0x00, // Bits per pixel : 16 bits
+    0x01, 0x00,             // Color plane : 1
+    0x10, 0x00,             // Bits per pixel : 16 bits
     0x03, 0x00, 0x00, 0x00, // Compression method : 3 (BITFIELDS)
     0x00, 0x58, 0x02, 0x00, // Raw Bitmap size : 153600 bytes
     0xC4, 0x0E, 0x00, 0x00, // Horizontal resolution : 3780 px/m
@@ -819,9 +820,10 @@ fn main() -> ! {
         i2c_write!(i2c, reg, val);
     }
     delay.delay_ms(1000_u16);
-
     defmt::println!("BEGIN LOOP");
+    let mut capture_requested = false;
     loop {
+
         let timestamp = Instant::from_micros(cortex_m::peripheral::DWT::cycle_count() / 200);
         iface.poll(timestamp, &mut eth_dma, &mut sockets);
 
@@ -845,8 +847,12 @@ fn main() -> ! {
                 .unwrap();
             if socket.can_send() && data_received {
                 // Take photo
-                clear_fifo_flag!(spi, cs);
-                start_capture!(spi, cs);
+                if !capture_requested {
+                    defmt::println!("capture");
+                    capture_requested = true;
+                    clear_fifo_flag!(spi, cs);
+                    start_capture!(spi, cs);
+                }
 
                 while !capture_done!(spi, cs) {
                     delay.delay_ms(10_u16);
@@ -856,10 +862,10 @@ fn main() -> ! {
                 let length = read_fifo_flag!(spi, cs);
 
                 if length >= 153600 {
+                    capture_requested = false;
                     defmt::println!("RESPONSE");
                     socket
-                        .send_slice("HTTP/1.1 200\nContent-Type: image/png\n\n".as_bytes())
-                        //.send_slice("HTTP/1.1 200\n\n".as_bytes())
+                        .send_slice("HTTP/1.1 200\nContent-Type: image/bmp\nContent-Length: 77878\n\n".as_bytes())
                         .unwrap();
                     socket.send_slice(&IMAGE_HEADER).unwrap();
                     let mut finished = false;
@@ -870,11 +876,15 @@ fn main() -> ! {
                         send_length += socket
                             .send(|buffer| {
                                 let mut written_length = 0;
+                                let mut raw = [0u8; 153600];
+                                spi.transfer(&mut raw).expect("SPI burst read");
                                 for i in 0..buffer.len() {
                                     if send_length + written_length == 76800 {
                                         break;
                                     }
-                                    let color: u16 = ((spi.transfer(&mut [0u8]).expect("SPI read")[0] as u16) << 8_u16) | spi.transfer(&mut [0u8]).expect("SPI read")[0] as u16;
+                                    let byte1 = raw[2*i] as u16;
+                                    let byte2 = raw[2*i + 1] as u16;
+                                    let color = (byte1 << 8) | byte2;
                                     buffer[i] = rgb565_to_gray(color);
                                     written_length += 1;
                                     if written_length < 1 {
@@ -885,14 +895,13 @@ fn main() -> ! {
                             })
                             .unwrap();
                     }
-                    defmt::println!("{=usize}", send_length);
-                    defmt::println!("Socket CLOSE");
-                    socket.close();
+                    //defmt::println!("Socket CLOSE");
+                    //socket.close();
                 }
             }
         } else if socket.may_send() {
-            defmt::println!("Socket CLOSE");
-            socket.close();
+            //defmt::println!("Socket CLOSE");
+            //socket.close();
         }
     }
 }
