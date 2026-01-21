@@ -848,7 +848,6 @@ fn main() -> ! {
             if socket.can_send() && data_received {
                 // Take photo
                 if !capture_requested {
-                    defmt::println!("capture");
                     capture_requested = true;
                     clear_fifo_flag!(spi, cs);
                     start_capture!(spi, cs);
