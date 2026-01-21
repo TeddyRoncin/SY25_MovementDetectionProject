@@ -10,8 +10,8 @@ from selenium.webdriver.common.by import By
 import base64
 import time
 
-# IP, PORT = "192.168.122.100", 80
-IP, PORT = "127.0.0.1", 8080
+IP, PORT = "192.168.122.100", 80
+# IP, PORT = "127.0.0.1", 8080
 URL = f"http://{IP}" + (f":{PORT}" if PORT != 80 else "")
 
 
@@ -70,7 +70,7 @@ class SocketImageGrabber(ImageGrabber):
         self.sock.connect((IP, PORT))
     @override
     def grab(self):
-        self.sock.send(b"blabla")
+        self.sock.send(b"Send me or consequences (plz)")
         res = b""
         fully_received_header = False
         while len(res) < 320 * 240 + 1078:
@@ -104,9 +104,9 @@ last_time = 0
 
 while True:
     image = ig.grab()
-    # cv2.imshow("hey ?", image)
+    cv2.imshow("Received", image)
     if previous_image is not None:
-        cv2.imshow("Out", get_motion(previous_image, image))
+        cv2.imshow("Motion", get_motion(previous_image, image))
     previous_image = image
     cv2.waitKey(1)
     new_time = time.time()
